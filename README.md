@@ -4,6 +4,24 @@ This package is very simple and allows to create the ESI XML files for the Ether
 
 The package builds the XML files that are to be used with LAN9252 EtherCAT slave controller.
 
+## Installation
+
+```bash
+pip install git+git@github.com:pollen-robotics/pyesi.git
+```
+
+or just clone the repository and run the following command in the root directory:
+
+```bash
+git clone git@github.com:pollen-robotics/pyesi.git
+cd pyesi
+```
+
+and then install the package:
+
+```bash
+pip install -e .
+```
 
 ## Usage
 
@@ -22,14 +40,14 @@ slave.name = "MyDevice"
 # create its input PDOS
 pdos = PDOs()
 pdos.name = "MyInputPDO"
-pdos.address = "1000"
+pdos.address = "1000" # LAN9252 PDO mapping address
 pdos.entries = [Entry(name="MyInput", type=EntryType.UINT32)]
 slave.RxPdos.append(pdos)
 
 # create its output PDOS
 pdos = PDOs()
 pdos.name = "MyOutputPDOs"
-pdos.address = "1200"
+pdos.address = "1200" # LAN9252 PDO mapping address
 pdos.entries = [Entry(name="MyOutput", type=EntryType.UINT32)]
 slave.TxPdos.append(pdos)
 
