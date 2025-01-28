@@ -6,38 +6,94 @@ from enum import Enum
 
 class EntryType(Enum):
     UINT8 = "UINT8"
+    UINT16 = "UINT16"
     UINT32 = "UINT32"
     REAL = "REAL"
 
     def bitlen(self):
         if self == self.UINT8:
             return "8"
+        if self == self.UINT16:
+            return "16"
         if self == self.UINT32:
             return "32"
         if self == self.REAL:
             return "32"
+
+class SyncManagerType(Enum):
+    MAILBOX= 0,
+    BUFFERED= 1
+    
+class SyncManagerDir(Enum):
+    Rx= 0,
+    Tx= 1
+    
+class SyncManager:
+    name = "Sync Manager"
+    sm_type = SyncManagerType.BUFFERED
+    address = "1000"
+    enabled = True
+    default_size = 128
+    control_byte = "#x64"
+    dir = SyncManagerDir.Rx
+    
+    def __init__(self, name, address, sm_type, sm_dir, default_size = None, enabled = 1):
+        self.name = name
+        self.sm_type = sm_type
+        self.address = address
+        self.default_size = default_size
+        self.enabled = enabled
+        self.dir = sm_dir
+        if sm_type == SyncManagerType.MAILBOX:
+            if sm_dir == SyncManagerDir.Rx:
+                self.control_byte = "#x26"
+            else: # Tx
+                self.control_byte = "#x22"
+        else: # BUFFERED
+            if sm_dir == SyncManagerDir.Rx:
+                self.control_byte = "#x64"
+            else: # Tx
+                self.control_byte = "#x20"
+
 
 
 class Entry:
     name = "Test Entry"
     bitlen = "8"
     type = EntryType.UINT8
+    index = None
+    sub_index = 0
 
-    def __init__(self, name, type):
+    def __init__(self, name, type, index =None, sub_index = 0):
         self.name = name
         self.type = type
+        self.index = index
+        self.sub_index = sub_index
 
 class PDOs:
     name = "Test PDOs"
-    address = "1000"
+    sm_type = SyncManagerType.BUFFERED
+    sm_index = 0
     entries = []
+
+    def __init__(self):
+        self.entries = []
 
 
 class Device:
     name = "Test Device"
     
+    sync_managers = []
+    
     TxPdos = []
     RxPdos = []
+    
+    enable_sdos = False
+    enable_foe = False
+
+    def __init__(self):
+        self.TxPdos = []
+        self.RxPdos = []
 
 
 class ESI:
@@ -48,7 +104,10 @@ class ESI:
     group_name = "Test Group Name"
 
     devices = []
-    
+
+    def __init__(self):
+        self.devices = []
+
 
     # def __init__(self, device_type, device_name, product_code, revision_no, check_revision_no, group_type, pdos):
 
@@ -74,62 +133,92 @@ class ESI:
         device_element = ET.Element("Device", Physics="YY")
         device_element.append(ET.Comment(f"{device.name} Device"))
         ET.SubElement(device_element, "Type", ProductCode="#x1", RevisionNo="#x1", CheckRevisionNo="EQ_OR_G").text = f'{device.name}'
-        ET.SubElement(device_element, "Name", LcId="1033").text = F"<![CDATA[{device.name}]]>"
+        ET.SubElement(device_element, "Name", LcId="1033").text = f"{device.name}"
         ET.SubElement(device_element, "GroupType").text = "SSC_Device"
 
         for fmmu in device.RxPdos:
             ET.SubElement(device_element, "Fmmu").text = fmmu.name
         for fmmu in device.TxPdos:
             ET.SubElement(device_element, "Fmmu").text = fmmu.name
-        
-        for sm in device.RxPdos:
-            ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x64", Enable="1").text = sm.name
-        for sm in device.TxPdos:
-            ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x20", Enable="1").text = sm.name
+
+        for sm in device.sync_managers:
+            if sm.default_size is None:
+                ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte=sm.control_byte, Enable=f"{sm.enabled}").text = sm.name
+            else:
+                ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', DefaultSize=f"{sm.default_size}", ControlByte=sm.control_byte, Enable=f"{sm.enabled}").text = sm.name
+
+        # for sm in device.RxPdos:
+        #     if sm.sm_type == SyncManagerType.MAILBOX:
+        #         print("ERROR: Mailbox for entry PDOs not supported!")
+        #         exit(1)
+        #         # ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x64", Enable="1").text = sm.name
+        #     elif sm.sm_type == SyncManagerType.BUFFERED:
+        #         ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x64", Enable=sm.enabled).text = sm.name
+        # for sm in device.TxPdos:
+        #     if sm.sm_type == SyncManagerType.MAILBOX:
+        #         ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x22", Enable="1").text = sm.name
+        #     elif sm.sm_type == SyncManagerType.BUFFERED:
+        #         ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x20", Enable="1").text = sm.name
 
         pdo_index = 1600
         entry_index = 10
-        sm_index = 0
         for pdo in device.RxPdos:
             device_element.append(ET.Comment(f"{pdo.name} PDOs" ))
-            rxpdo = ET.SubElement(device_element, "RxPdo", Fixed="1", Mandatory="1", Sm=f"{sm_index}")
+            rxpdo = ET.SubElement(device_element, "RxPdo", Fixed="1", Mandatory="1", Sm=f"{pdo.sm_index}")
             ET.SubElement(rxpdo, "Index").text = f"#x{pdo_index}"
             ET.SubElement(rxpdo, "Name").text = pdo.name
             pdo_index += 100
-            sm_index += 1
             for i, entry in enumerate(pdo.entries):
-                e = ET.SubElement(device_element, "Entry")
-                ET.SubElement(e, "Index").text = f"#x{entry_index}"
-                ET.SubElement(e, "SubIndex").text = "0"
+                e = ET.SubElement(rxpdo, "Entry")
+                if entry.index is not None:
+                    ET.SubElement(e, "Index").text = f"#x{entry.index}"
+                else:
+                    ET.SubElement(e, "Index").text = f"#x{entry_index}"
+                    entry_index += 1
+                ET.SubElement(e, "SubIndex").text = f"{entry.sub_index}"
                 ET.SubElement(e, "BitLen").text = entry.type.bitlen()
                 ET.SubElement(e, "Name").text = entry.name
                 ET.SubElement(e, "DataType").text = entry.type.value
-                entry_index += 1
 
         for pdo in device.TxPdos:
             device_element.append(ET.Comment(f"{pdo.name} PDOs" ))
-            txpdo = ET.SubElement(device_element, "TxPdo", Fixed="1", Mandatory="1", Sm=f"{sm_index}")
+            txpdo = ET.SubElement(device_element, "TxPdo", Fixed="1", Mandatory="1", Sm=f"{pdo.sm_index}")
             ET.SubElement(txpdo, "Index").text = f"#x{pdo_index}"
             ET.SubElement(txpdo, "Name").text = pdo.name
             pdo_index += 100
-            sm_index += 1
             for i, entry in enumerate(pdo.entries):
                 e = ET.SubElement(txpdo, "Entry")
-                ET.SubElement(e, "Index").text = f"#x{entry_index}"
-                ET.SubElement(e, "SubIndex").text = "0"
+                if entry.index is not None:
+                    ET.SubElement(e, "Index").text = f"#x{entry.index}"
+                else:
+                    ET.SubElement(e, "Index").text = f"#x{entry_index}"
+                    entry_index += 1
+                ET.SubElement(e, "SubIndex").text = f"{entry.sub_index}"
                 ET.SubElement(e, "BitLen").text = entry.type.bitlen()
                 ET.SubElement(e, "Name").text = entry.name
                 ET.SubElement(e, "DataType").text = entry.type.value
-                entry_index += 1
         
 
-        device_element.append(self.generate_sync_manager())
+        if device.enable_sdos:
+            device_element.append(self.generate_mailbox_config(device.enable_foe))
+        device_element.append(self.generate_sync_manager_config())
         device_element.append(self.generate_ln9252_config())
 
         return device_element
 
 
-    def generate_sync_manager(self):
+    def generate_mailbox_config(self, enable_foe):
+        # <Mailbox DataLinkLayer="true">
+		# 			<CoE SdoInfo="true" PdoAssign="false" PdoConfig="false" CompleteAccess="false" SegmentedSdo="true" />
+        #   <FoE/>
+        # </Mailbox>
+        mailbox_config = ET.Element("Mailbox")
+        ET.SubElement(mailbox_config, "CoE", SdoInfo="true", PdoAssign="false", PdoConfig="false", CompleteAccess="false", SegmentedSdo="true")
+        if enable_foe:
+            ET.SubElement(mailbox_config, "FoE")
+        return mailbox_config
+
+    def generate_sync_manager_config(self):
         sync_manager = ET.Element("Dc")
 
 
@@ -163,6 +252,8 @@ class ESI:
         eeprom.append(ET.Comment("0x152   0xFF all GPIO set to out       "))
         eeprom.append(ET.Comment("0x153   0x00 reserved                  "))
         eeprom.append(ET.Comment("0x12-13 0x0000 alias address           "))
+        eeprom.append(ET.Comment("see more here: https://ww1.microchip.com/downloads/en/AppNotes/00001920A.pdf"))
+        ET.SubElement(eeprom, "BootStrap").text = "0010800080108000"
         return eeprom
 
     def to_xml(self):
