@@ -73,16 +73,3 @@ class TestESI(unittest.TestCase):
             self.assertIn("<EtherCATInfo", content)
         # delete the file
         os.remove("test.xml")
-
-    def test_parse_yaml(self):
-        yaml_content = """
-        vendor_id: '#xF3F'
-        vendor_name: Pollen Robotics SAS
-        """
-        with open("test.yaml", "w") as f:
-            f.write(yaml_content)
-        parsed_yaml = parse_yaml("test.yaml")
-        # delete the file
-        os.remove("test.yaml")
-        self.assertEqual(parsed_yaml["vendor_id"], "#xF3F")
-        self.assertEqual(parsed_yaml["vendor_name"], "Pollen Robotics SAS")

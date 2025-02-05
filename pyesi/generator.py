@@ -5,6 +5,14 @@ import yaml
 from enum import Enum
 
 class EntryType(Enum):
+    """
+    EntryType: Enum for the type of the entry
+    
+    UINT8: 8-bit unsigned integer
+    UINT16: 16-bit unsigned integer
+    UINT32: 32-bit unsigned integer
+    REAL: 32-bit float
+    """
     UINT8 = "UINT8"
     UINT16 = "UINT16"
     UINT32 = "UINT32"
@@ -21,14 +29,38 @@ class EntryType(Enum):
             return "32"
 
 class SyncManagerType(Enum):
+    """
+    SyncManagerType: Enum for the type of the Sync Manager
+    
+    MAILBOX: Mailbox type
+    BUFFERED: Buffered type
+    """
     MAILBOX= 0,
     BUFFERED= 1
     
 class SyncManagerDir(Enum):
+    """
+    SyncManagerDir: Enum for the direction of the Sync Manager
+    
+    Rx: Receive
+    Tx: Transmit
+    """
     Rx= 0,
     Tx= 1
     
 class SyncManager:
+    """
+    SyncManager: Class for the Sync Manager 
+    
+    name: Name of the Sync Manager
+    sm_type: Type of the Sync Manager
+    address: Address of the Sync Manager
+    enabled: Enable the Sync Manager
+    default_size: Default size of the Sync Manager
+    control_byte: Control byte of the Sync Manager
+    dir: Direction of the Sync Manager
+    """
+        
     name = "Sync Manager"
     sm_type = SyncManagerType.BUFFERED
     address = "1000"
@@ -58,6 +90,16 @@ class SyncManager:
 
 
 class Entry:
+    """
+    Entry: Class for the entry of the PDO
+    
+    name: Name of the entry
+    bitlen: Bit length of the entry
+    type: Type of the entry
+    index: Index of the entry
+    sub_index: Sub index of the entry
+    """
+    
     name = "Test Entry"
     bitlen = "8"
     type = EntryType.UINT8
@@ -71,8 +113,15 @@ class Entry:
         self.sub_index = sub_index
 
 class PDOs:
+    """
+    Class representing a PDO group
+    
+    name: Name of the PDO group
+    sm_index: Index of the Sync Manager
+    entries: List of entries in the PDO group
+    """
+    
     name = "Test PDOs"
-    sm_type = SyncManagerType.BUFFERED
     sm_index = 0
     entries = []
 
@@ -81,6 +130,16 @@ class PDOs:
 
 
 class Device:
+    """
+    Device: Class representing a slave device
+    
+    name: Name of the device
+    TxPdos: List of Transmit PDOs
+    RxPdos: List of Receive PDOs
+    enable_sdos: Enable SDOs
+    enable_foe: Enable FoE
+    """
+    
     name = "Test Device"
     
     sync_managers = []
@@ -97,11 +156,24 @@ class Device:
 
 
 class ESI:
+    """
+    ESI: Class representing the EtherCAT Slave Information
+    
+    vendor_id: Vendor ID
+    vendor_name: Vendor Name
+    lan9252: Is LAN9252
+    group_type: Group Type
+    group_name: Group Name
+    devices: List of devices
+    """
+        
     vendor_id = "Test"
     vendor_name = "Test Name"
 
     group_type = "SSC_Device"
     group_name = "Test Group Name"
+    
+    lan9252 = True
 
     devices = []
 
@@ -112,6 +184,11 @@ class ESI:
     # def __init__(self, device_type, device_name, product_code, revision_no, check_revision_no, group_type, pdos):
 
     def create_vendor(self):
+        """
+        create_vendor: Create the vendor element
+        
+        return: The vendor element
+        """
         vendor = ET.Element("Vendor")
         ET.SubElement(vendor, "Id").text = self.vendor_id
         ET.SubElement(vendor, "Name").text = self.vendor_name
@@ -121,6 +198,11 @@ class ESI:
         return vendor
 
     def create_group(self):
+        """
+        create_group: Create the group element
+        
+        return: The group element
+        """
         group = ET.Element("Group", SortOrder="0")
         ET.SubElement(group, "Type").text =  self.group_type
         ET.SubElement(group, "Name", LcId="1033").text = self.group_name
@@ -130,36 +212,32 @@ class ESI:
         return group
 
     def create_device(self, device):
+        """
+        create_device: Create the device element
+        
+        device: The device to create
+        
+        return: The device element
+        """
+        
         device_element = ET.Element("Device", Physics="YY")
         device_element.append(ET.Comment(f"{device.name} Device"))
         ET.SubElement(device_element, "Type", ProductCode="#x1", RevisionNo="#x1", CheckRevisionNo="EQ_OR_G").text = f'{device.name}'
         ET.SubElement(device_element, "Name", LcId="1033").text = f"{device.name}"
         ET.SubElement(device_element, "GroupType").text = "SSC_Device"
 
-        for fmmu in device.RxPdos:
-            ET.SubElement(device_element, "Fmmu").text = fmmu.name
-        for fmmu in device.TxPdos:
+        # Add Fmmu units
+        for fmmu in device.sync_managers:
             ET.SubElement(device_element, "Fmmu").text = fmmu.name
 
+        # Add Sync Managers
         for sm in device.sync_managers:
             if sm.default_size is None:
                 ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte=sm.control_byte, Enable=f"{sm.enabled}").text = sm.name
             else:
                 ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', DefaultSize=f"{sm.default_size}", ControlByte=sm.control_byte, Enable=f"{sm.enabled}").text = sm.name
-
-        # for sm in device.RxPdos:
-        #     if sm.sm_type == SyncManagerType.MAILBOX:
-        #         print("ERROR: Mailbox for entry PDOs not supported!")
-        #         exit(1)
-        #         # ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x64", Enable="1").text = sm.name
-        #     elif sm.sm_type == SyncManagerType.BUFFERED:
-        #         ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x64", Enable=sm.enabled).text = sm.name
-        # for sm in device.TxPdos:
-        #     if sm.sm_type == SyncManagerType.MAILBOX:
-        #         ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x22", Enable="1").text = sm.name
-        #     elif sm.sm_type == SyncManagerType.BUFFERED:
-        #         ET.SubElement(device_element, "Sm", StartAddress=f'#x{sm.address}', ControlByte="#x20", Enable="1").text = sm.name
-
+        
+        # Add RxPDOs
         pdo_index = 1600
         entry_index = 10
         for pdo in device.RxPdos:
@@ -180,6 +258,7 @@ class ESI:
                 ET.SubElement(e, "Name").text = entry.name
                 ET.SubElement(e, "DataType").text = entry.type.value
 
+        # Add TxPDOs
         for pdo in device.TxPdos:
             device_element.append(ET.Comment(f"{pdo.name} PDOs" ))
             txpdo = ET.SubElement(device_element, "TxPdo", Fixed="1", Mandatory="1", Sm=f"{pdo.sm_index}")
@@ -198,20 +277,26 @@ class ESI:
                 ET.SubElement(e, "Name").text = entry.name
                 ET.SubElement(e, "DataType").text = entry.type.value
         
-
+        # Add Mailbox SDO and FOE if enabled
         if device.enable_sdos:
             device_element.append(self.generate_mailbox_config(device.enable_foe))
+        
+        # configure LAN9252
         device_element.append(self.generate_sync_manager_config())
-        device_element.append(self.generate_ln9252_config())
+        if self.lan9252:
+            device_element.append(self.generate_ln9252_config())
 
         return device_element
 
 
     def generate_mailbox_config(self, enable_foe):
-        # <Mailbox DataLinkLayer="true">
-		# 			<CoE SdoInfo="true" PdoAssign="false" PdoConfig="false" CompleteAccess="false" SegmentedSdo="true" />
-        #   <FoE/>
-        # </Mailbox>
+        """
+        generate_mailbox_config: Generate the mailbox configuration
+        
+        enable_foe: Enable FoE
+        
+        return: The mailbox configuration element
+        """
         mailbox_config = ET.Element("Mailbox", DataLinkLayer="true")
         ET.SubElement(mailbox_config, "CoE", SdoInfo="true", PdoAssign="false", PdoConfig="false", CompleteAccess="false", SegmentedSdo="true")
         if enable_foe:
@@ -219,6 +304,11 @@ class ESI:
         return mailbox_config
 
     def generate_sync_manager_config(self):
+        """
+        generate_sync_manager_config: Generate the sync manager configuration
+        
+        return: The sync manager configuration element
+        """
         sync_manager = ET.Element("Dc")
 
 
@@ -237,6 +327,11 @@ class ESI:
         return sync_manager
  
     def generate_ln9252_config(self):
+        """
+        generate_ln9252_config: Generate the LAN9252 configuration
+        
+        return: The LAN9252 configuration element
+        """
         eeprom = ET.Element("Eeprom")
         ET.SubElement(eeprom, "ByteSize").text = "4096"
         ET.SubElement(eeprom, "ConfigData").text = "8003006EFF00FF000000"
@@ -257,6 +352,11 @@ class ESI:
         return eeprom
 
     def to_xml(self):
+        """
+        to_xml: Generate the XML tree
+        
+        return: The XML tree
+        """
         root = ET.Element("EtherCATInfo")
         root.set('xmlns:xsi',"http://www.w3.org/2001/XMLSchema-instance")
         root.set('xsi:noNamespaceSchemaLocation',"EtherCATInfo.xsd")
@@ -281,20 +381,28 @@ class ESI:
         return tree
 
 def prettify_xml(tree):
+    """
+    prettify_xml: Prettify the XML tree
+    
+    tree: The XML tree
+    
+    return: The prettified XML
+    """
     raw_xml = ET.tostring(tree.getroot(), 'utf-8')
     parsed = minidom.parseString(raw_xml)
     return parsed.toprettyxml(indent="  ")
 
 
 def write_xml( tree, filename):
+    """
+    write_xml: Write the XML tree to a file
+    
+    tree: The XML tree
+    filename: The file name
+    """
     pretty_xml = prettify_xml(tree)
     with open(filename, "w") as f:
         f.write(pretty_xml)
-
-def parse_yaml(file_path):
-    with open(file_path, 'r') as file:
-        content = file.read().replace("!Poulpe", "")
-        return yaml.safe_load(content)
 
 # Main code
 if __name__ == "__main__":
