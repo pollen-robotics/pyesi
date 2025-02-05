@@ -10,17 +10,23 @@ for i in range(2):
     slave = Device()
     slave.name = f"MyDevice {i}"
 
+    # sync managers - only buffered PDOs
+    slave.sync_managers= [
+        SyncManager("MyPDOIn",1000, SyncManagerType.BUFFERED, SyncManagerDir.Rx),
+        SyncManager("MyPDOOut",1200, SyncManagerType.BUFFERED, SyncManagerDir.Tx),
+    ]
+    
     # create its input PDOS
     pdos = PDOs()
     pdos.name = "MyInputPDO"
-    pdos.address = "1000"
+    pdos.sm_index = 0
     pdos.entries = [Entry(name="MyInput", type=EntryType.UINT32)]
     slave.RxPdos.append(pdos)
 
     # create its output PDOS
     pdos = PDOs()
     pdos.name = "MyOutputPDOs"
-    pdos.address = "1200"
+    pdos.sm_index = 1
     pdos.entries = [Entry(name="MyOutput", type=EntryType.UINT32)]
     slave.TxPdos.append(pdos)
 
