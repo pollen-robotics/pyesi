@@ -212,7 +212,7 @@ class ESI:
 		# 			<CoE SdoInfo="true" PdoAssign="false" PdoConfig="false" CompleteAccess="false" SegmentedSdo="true" />
         #   <FoE/>
         # </Mailbox>
-        mailbox_config = ET.Element("Mailbox")
+        mailbox_config = ET.Element("Mailbox", DataLinkLayer="true")
         ET.SubElement(mailbox_config, "CoE", SdoInfo="true", PdoAssign="false", PdoConfig="false", CompleteAccess="false", SegmentedSdo="true")
         if enable_foe:
             ET.SubElement(mailbox_config, "FoE")
