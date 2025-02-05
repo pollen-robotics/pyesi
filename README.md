@@ -23,7 +23,10 @@ and then install the package:
 pip install -e .
 ```
 
-## Usage
+## Examples
+
+
+### Example 1: Simple slave with buffered PDOs
 
 ```python
 from pyesi.generator import *
@@ -37,17 +40,23 @@ esi.vendor_name = "Pollen Robotcs SAS"
 slave = Device()
 slave.name = "MyDevice"
 
+# sync managers - only buffered PDOs
+slave.sync_managers= [
+    SyncManager("MyPDOIn",1300, SyncManagerType.BUFFERED, SyncManagerDir.Rx),
+    SyncManager("MyPDOOut",1400, SyncManagerType.BUFFERED, SyncManagerDir.Tx),
+]
+
 # create its input PDOS
 pdos = PDOs()
 pdos.name = "MyInputPDO"
-pdos.address = "1000" # LAN9252 PDO mapping address
+pdos.sm_index = 0
 pdos.entries = [Entry(name="MyInput", type=EntryType.UINT32)]
 slave.RxPdos.append(pdos)
 
 # create its output PDOS
 pdos = PDOs()
 pdos.name = "MyOutputPDOs"
-pdos.address = "1200" # LAN9252 PDO mapping address
+pdos.sm_index = 1
 pdos.entries = [Entry(name="MyOutput", type=EntryType.UINT32)]
 slave.TxPdos.append(pdos)
 
@@ -58,3 +67,52 @@ write_xml(tree, "myslave.xml")
 print("XML file generated successfully.")
 
 ```
+### Example 2: Slave with buffered PDOs and mailbox SDOs and FoE enabled
+
+```python
+from pyesi.generator import *
+
+# some global info
+esi = ESI()
+esi.vendor_id = "#xF3F"
+esi.vendor_name = "Pollen Robotcs SAS"
+
+# create the slave 0
+slave = Device()
+slave.name = "MyDevice"
+
+# sync managers with the mailbox
+slave.sync_managers= [
+    SyncManager("MBoxOut",1000, SyncManagerType.MAILBOX, SyncManagerDir.Rx, 128),
+    SyncManager("MBoxIn",1180, SyncManagerType.MAILBOX, SyncManagerDir.Tx, 128),
+    SyncManager("MyPDOIn",1300, SyncManagerType.BUFFERED, SyncManagerDir.Rx),
+    SyncManager("MyPDOOut",1400, SyncManagerType.BUFFERED, SyncManagerDir.Tx),
+]
+
+# create its input PDOS
+pdos = PDOs()
+pdos.name = "MyInputPDOs"
+pdos.sm_index = 0
+pdos.entries = [Entry(name="MyInput", type=EntryType.UINT32)]
+slave.RxPdos.append(pdos)
+
+# create its output PDOS
+pdos = PDOs()
+pdos.name = "MyOutputPDOs"
+pdos.sm_index = 1
+pdos.entries = [Entry(name="MyOutput", type=EntryType.UINT32)]
+slave.TxPdos.append(pdos)
+
+# enable sdos 
+device.enable_sdo = True
+#enable foe
+device.enable_foe = True
+
+# add it to the ESI file
+esi.devices.append(slave)
+tree = esi.to_xml()
+write_xml(tree, "myslave.xml")
+print("XML file generated successfully.")
+
+```
+    
